@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fare Booster – Extra amount motion (build)</title>
+<style>
+  :root {
+    --type-primary: #283548;
+    --type-strong: #1b2531;
+    --type-secondary: #62728d;
+    --type-positive: #157a4e;
+    --type-caution: #b45309;
+    --surface: #fcfdfd;
+    --surface-2: #f5f7fa;
+    --surface-3: #f1f5f9;
+    --brand: #0a57ff;
+    --font: "PP Mori", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    font-family: var(--font);
+    background: #e9edf3;
+    color: var(--type-primary);
+    display: flex; align-items: center; justify-content: center; gap: 40px;
+    padding: 24px; flex-wrap: wrap;
+  }
+  p { margin: 0; }
+
+  /* ---------- device (360 × 800 at 1×) ---------- */
+  .device-wrap { width: 360px; height: 800px; flex: none; }
+  .device {
+    position: relative; width: 360px; height: 800px; overflow: hidden;
+    background: var(--surface-3); border-radius: 28px;
+    box-shadow: 0 24px 60px rgba(27, 37, 49, .25);
+    transform-origin: top left;
+  }
+  .status-bar {
+    position: absolute; inset: 0 0 auto 0; height: 44px; background: var(--surface);
+    display: flex; align-items: flex-end; justify-content: space-between; padding: 10px 20px;
+  }
+  .status-bar .time { font: 500 14px/20px Roboto, var(--font); letter-spacing: .14px; color: var(--type-primary); }
+  .status-bar .icons { display: flex; align-items: flex-start; gap: 0; height: 17px; position: relative; width: 46px; }
+  .status-bar .icons span { position: absolute; top: 0; line-height: 0; }
+  .status-bar .camera { position: absolute; left: 50%; top: 10px; transform: translateX(-50%); line-height: 0; }
+  .app-bg { position: absolute; left: 0; right: 0; top: 44px; bottom: 0; background: var(--surface-3); }
+  .overlay { position: absolute; inset: 0; background: rgba(55, 73, 98, .8); }
+  .nav-bar { position: absolute; left: 0; right: 0; bottom: 0; background: var(--surface); padding: 12px 32px; display: flex; justify-content: center; }
+  .nav-bar i { width: 108px; height: 4px; border-radius: 12px; background: var(--type-secondary); }
+
+  /* ---------- accept order pop-up ---------- */
+  .accept-container { position: absolute; left: 0; top: 0; width: 360px; padding: 32px 8px 0; display: flex; justify-content: center; }
+  .accept {
+    position: relative; width: 344px; background: var(--surface); border-radius: 24px; overflow: hidden;
+    padding-top: 16px; display: flex; flex-direction: column; align-items: center; gap: 16px;
+  }
+  .accept > .bg { position: absolute; left: 0; top: 0; width: 344px; height: 180px; line-height: 0; }
+  .fare-card {
+    position: relative; width: 312px; background: var(--surface); border-radius: 16px;
+    filter: drop-shadow(0 2px 2px rgba(55, 73, 98, .08));
+    padding: 12px 20px; display: flex; flex-direction: column; align-items: center; gap: 8px;
+  }
+  .fare-row { position: relative; display: flex; align-items: flex-end; gap: 3px; white-space: nowrap; font-weight: 700; }
+  .base-fare { font-size: 28px; line-height: 40px; color: var(--type-primary); }
+  .extra {
+    display: flex; align-items: center; gap: 3px; padding: 3px 0;
+    font-size: 20px; line-height: 28px; color: var(--type-positive);
+    transform-origin: 50% 50%; will-change: transform;
+  }
+  .amount { position: relative; display: inline-block; }
+  /* shimmer: a 43 × 47 soft highlight painted only inside the amount glyphs */
+  .amount .shimmer {
+    position: absolute; inset: 0; pointer-events: none;
+    color: transparent; opacity: .6;
+    background-image: radial-gradient(closest-side, #ffffff 0%, rgba(255, 255, 255, .85) 35%, rgba(255, 255, 255, 0) 100%);
+    background-size: 43px 47px; background-repeat: no-repeat;
+    background-position: -100px 50%;
+    -webkit-background-clip: text; background-clip: text;
+  }
+  /* ripple: anchor sits at the amount's centre; scaler scales around that point */
+  .ripple-anchor { position: absolute; width: 0; height: 0; pointer-events: none; }
+  .ripple-scaler { position: absolute; left: 0; top: 0; width: 0; height: 0; transform-origin: 0 0; will-change: transform; }
+  .ripple {
+    position: absolute; left: 0; top: 0; transform: translate(-50%, -50%);
+    border: 1px solid var(--type-positive); border-radius: 999px; opacity: 0;
+  }
+  .breakdown { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .divider { width: 100%; line-height: 0; }
+  .divider svg { width: 100%; height: 1px; display: block; }
+  .chip { display: flex; align-items: center; gap: 2px; padding-right: 4px; background: var(--surface-2); border-radius: 4px; }
+  .chip .icon { background: var(--surface-3); border-radius: 4px; padding: 2px; display: flex; }
+  .chip .icon span { width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; }
+  .chip p { font-size: 12px; line-height: 16px; font-weight: 600; color: var(--type-primary); }
+
+  .address { position: relative; width: 100%; padding: 0 16px; display: flex; gap: 12px; }
+  .track { width: 10px; flex: none; background: var(--surface-3); border-radius: 100px; display: flex; flex-direction: column; justify-content: space-between; align-items: center; padding: 5px 1px; }
+  .track i { width: 8px; height: 8px; border-radius: 50%; }
+  .track .pickup { background: #22c36d; }
+  .track .drop { background: #e11d48; }
+  .stops { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+  .stop h3 { margin: 0; font-size: 16px; line-height: 24px; font-weight: 700; color: var(--type-strong); }
+  .stop p { font-size: 12px; line-height: 16px; font-weight: 600; color: var(--type-secondary); }
+
+  .cta-strip { position: relative; width: 100%; display: flex; flex-direction: column; }
+  .cta { position: relative; z-index: 2; padding: 8px 16px 16px; margin-bottom: -16px; }
+  .swipe {
+    position: relative; height: 56px; border-radius: 1000px; background: var(--brand);
+    display: flex; align-items: center; justify-content: center; gap: 2px;
+    font-size: 18px; line-height: 26px; font-weight: 700; color: var(--surface);
+  }
+  .swipe .slider {
+    position: absolute; left: 8px; top: 50%; transform: translateY(-50%);
+    width: 40px; height: 40px; border-radius: 50%; background: var(--surface);
+    box-shadow: 0 20px 48px rgba(55, 73, 98, .12); display: flex; align-items: center; justify-content: center;
+  }
+  .swipe .sec { font-family: Inter, var(--font); }
+  .info-strip {
+    position: relative; z-index: 1; display: flex; align-items: center; justify-content: center; gap: 4px;
+    padding: 16px 20px 12px; background: linear-gradient(to top, #fef3c7, var(--surface));
+  }
+  .info-strip span { width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; }
+  .info-strip p { font-size: 12px; line-height: 16px; font-weight: 600; color: var(--type-caution); }
+
+  /* ---------- control panel (not part of the screen) ---------- */
+  .panel { width: 320px; background: #fff; border-radius: 16px; padding: 20px; box-shadow: 0 8px 24px rgba(27, 37, 49, .08); font-size: 14px; }
+  .panel h2 { margin: 0 0 4px; font-size: 18px; }
+  .panel .sub { color: var(--type-secondary); margin-bottom: 16px; font-size: 13px; line-height: 18px; }
+  .panel label { display: block; font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--type-secondary); margin: 14px 0 6px; }
+  .seg { display: flex; gap: 6px; flex-wrap: wrap; }
+  .seg button, .panel .btn {
+    font: inherit; border: 1px solid #cbd5e1; background: #fff; border-radius: 8px; padding: 6px 12px; cursor: pointer; color: var(--type-primary);
+  }
+  .seg button[aria-pressed="true"] { background: var(--type-primary); color: #fff; border-color: var(--type-primary); }
+  .panel .btn.primary { background: var(--brand); color: #fff; border-color: var(--brand); width: 100%; padding: 10px; font-weight: 700; margin-top: 16px; }
+  table.readout { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table.readout td { padding: 4px 0; border-bottom: 1px solid #eef2f6; }
+  table.readout td:last-child { text-align: right; font-variant-numeric: tabular-nums; font-weight: 700; }
+  .clock { font-variant-numeric: tabular-nums; font-weight: 700; }
+  .rm-note { display: none; margin-top: 12px; padding: 8px 10px; border-radius: 8px; background: #fef3c7; color: var(--type-caution); font-size: 12px; }
+</style>
+</head>
+<body>
+
+<div class="device-wrap" id="deviceWrap">
+  <div class="device" id="device" aria-label="Accept order pop-up, 360 by 800">
+    <div class="app-bg"></div>
+    <div class="status-bar">
+      <span class="time">12:58</span>
+      <span class="camera"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M12 0C5.37313 0 0 5.37313 0 12C0 18.6269 5.37313 24 12 24C18.6269 24 24 18.6269 24 12C24 5.37313 18.6269 0 12 0Z" fill="#151C28"/></svg></span>
+      <span class="icons" aria-hidden="true">
+        <span style="left:0"><svg width="17" height="17" viewBox="0 0 17 17" fill="none" xmlns="http://www.w3.org/2000/svg"><path opacity="0.1" d="M8.5 1.41675C5.1 1.41675 2.125 2.90425 0 5.24175L8.5 15.5834L17 5.24175C14.875 2.90425 11.9 1.41675 8.5 1.41675Z" fill="#283548"/></svg></span>
+        <span style="left:16px"><svg width="17" height="17" viewBox="0 0 17 17" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M15.5837 1.41675L1.41699 15.5834H15.5837V1.41675Z" fill="#283548"/></svg></span>
+        <span style="left:38px;top:1px"><svg width="8" height="15" viewBox="0 0 8 15" fill="none" xmlns="http://www.w3.org/2000/svg"><path opacity="0.3" d="M5.5 0H2.5V1.5H1C0.447715 1.5 0 2.00368 0 2.625V13.875C0 14.4963 0.447715 15 1 15H7C7.55228 15 8 14.4963 8 13.875V2.625C8 2.00368 7.55228 1.5 7 1.5H5.5V0Z" fill="#283548"/><path d="M6.17902e-06 8C-1.48833e-06 8.58333 1.46004e-07 13.3667 1.46004e-07 13.95C1.46004e-07 14.5299 0.447715 15 1 15H7C7.55228 15 8 14.5299 8 13.95C8 13.3667 8 8.58333 8 8H6.17902e-06Z" fill="#283548"/></svg></span>
+      </span>
+    </div>
+    <div class="nav-bar"><i></i></div>
+    <div class="overlay"></div>
+
+    <div class="accept-container">
+      <div class="accept" role="dialog" aria-label="Accept order">
+        <div class="bg" aria-hidden="true"><svg width="344" height="180" viewBox="0 0 344 180" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M0 0H344V180H0V0Z" fill="url(#acceptBg)"/><defs><linearGradient id="acceptBg" x1="172" y1="0" x2="172" y2="180" gradientUnits="userSpaceOnUse"><stop stop-color="#9DC9FF"/><stop offset="0.5" stop-color="#D2E6FE"/><stop offset="1" stop-color="#FCFDFD"/></linearGradient></defs></svg></div>
+
+        <div class="fare-card">
+          <div class="fare-row" id="fareRow">
+            <p class="base-fare">₹1,300</p>
+            <div class="extra" id="extra">
+              <p>+</p>
+              <p class="amount" id="amount"><span id="amountText">₹400</span><span class="shimmer" id="shimmer" aria-hidden="true">₹400</span></p>
+            </div>
+            <div class="ripple-anchor" id="rippleAnchor" aria-hidden="true">
+              <div class="ripple-scaler" id="rippleScaler"><div class="ripple" id="ripple"></div></div>
+            </div>
+          </div>
+          <div class="breakdown">
+            <div class="divider"><svg viewBox="0 0 272 1" preserveAspectRatio="none" fill="none" xmlns="http://www.w3.org/2000/svg"><line x1="0.5" y1="0.5" x2="271.5" y2="0.5" stroke="#CBD5E1" stroke-linecap="round" stroke-dasharray="0.25 4"/></svg></div>
+            <div class="chip">
+              <div class="icon"><span><svg width="12" height="10" viewBox="0 0 12 10" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M10.5547 0.149658C10.8655 0.149879 11.1084 0.405408 11.1084 0.704346C11.1083 1.00317 10.8655 1.25784 10.5547 1.25806H9.44141C9.55274 1.53737 9.62588 1.83418 9.65234 2.13794H10.5625C10.8614 2.13801 11.116 2.3808 11.1162 2.69165C11.1162 3.00265 10.8615 3.24626 10.5625 3.24634H9.55664C9.25611 4.49473 8.2896 5.38803 7.05176 5.47485C7.54091 5.96401 8.04331 6.46543 8.52734 6.94946L9.75195 8.17505C9.97575 8.38765 9.97657 8.74555 9.75293 8.95825L9.75195 8.95728C9.64257 9.06532 9.50098 9.12034 9.3584 9.12036C9.22223 9.12036 9.08222 9.06489 8.97559 8.96899L8.96973 8.96411L7.7334 7.72778C6.94987 6.94426 6.10127 6.10319 5.37402 5.38403H5.37305C5.37265 5.38366 5.37139 5.38202 5.36914 5.38013C5.36613 5.3776 5.36253 5.37445 5.35742 5.37036C5.34895 5.36358 5.3323 5.35011 5.31738 5.33521C5.261 5.27882 5.22795 5.22272 5.2002 5.16724L5.19629 5.15942C5.16261 5.08085 5.1514 5.00333 5.15137 4.93872C5.15137 4.89499 5.14975 4.80813 5.20312 4.72095C5.22864 4.65808 5.26573 4.60192 5.29785 4.56177L5.30273 4.55493L5.30859 4.54907C5.365 4.4927 5.42203 4.46061 5.47754 4.43286C5.55361 4.39489 5.63497 4.38408 5.69727 4.38403H6.84473C7.56076 4.38403 8.14654 3.93924 8.40723 3.24634H5.71387C5.40477 3.24633 5.16016 3.00075 5.16016 2.69165C5.16032 2.3827 5.40487 2.13795 5.71387 2.13794H8.5332C8.49416 1.8208 8.37162 1.51896 8.17578 1.25806H5.70605C5.39703 1.25806 5.1515 1.01333 5.15137 0.704346C5.15137 0.395241 5.39695 0.149658 5.70605 0.149658H10.5547Z" fill="#1D2735" stroke="#1D2735" stroke-width="0.3"/><path d="M1.93457 2.80176C2.22435 2.80189 2.46387 3.04125 2.46387 3.33105V4.10645H3.23926C3.52913 4.10646 3.76855 4.34587 3.76855 4.63574C3.76843 4.92551 3.52905 5.16503 3.23926 5.16504H2.46387V5.94043C2.46385 6.23022 2.22434 6.4696 1.93457 6.46973C1.6447 6.46973 1.40529 6.2303 1.40527 5.94043V5.16504H0.629883C0.34008 5.16504 0.100715 4.92552 0.100586 4.63574C0.100586 4.34586 0.340002 4.10645 0.629883 4.10645H1.40527V3.33105C1.40527 3.04117 1.64469 2.80176 1.93457 2.80176Z" fill="#1D2735" stroke="#1D2735" stroke-width="0.2"/></svg></span></div>
+              <p>Extra</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="address">
+          <div class="track" aria-hidden="true"><i class="pickup"></i><i class="drop"></i></div>
+          <div class="stops">
+            <div class="stop"><h3>0.8 km • Jayanagar</h3><p>31st Cross Road, 27/1, 16th Main, 4th T Block East, Jayanagar, Bengaluru, Karnataka 560011</p></div>
+            <div class="stop"><h3>10 km • Indiranagar</h3><p>123 Brigade Road, Ashoka Pillar, Opposite Brigade Tower, Bangalore - 560025</p></div>
+          </div>
+        </div>
+
+        <div class="cta-strip">
+          <div class="cta">
+            <div class="swipe">
+              <div class="slider" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M13.5459 12.7959L6.0459 20.2959C5.94125 20.4005 5.81702 20.4836 5.68029 20.5402C5.54356 20.5968 5.39702 20.626 5.24902 20.626C5.10103 20.626 4.95448 20.5968 4.81776 20.5402C4.68103 20.4836 4.55679 20.4005 4.45215 20.2959C4.3475 20.1912 4.26449 20.067 4.20785 19.9303C4.15122 19.7936 4.12207 19.647 4.12207 19.499C4.12207 19.351 4.15122 19.2045 4.20785 19.0678C4.26449 18.931 4.3475 18.8068 4.45215 18.7021L11.1562 12L4.45402 5.2959C4.24268 5.08455 4.12395 4.79791 4.12395 4.49902C4.12395 4.20014 4.24268 3.91349 4.45402 3.70215C4.66537 3.4908 4.95201 3.37207 5.2509 3.37207C5.54978 3.37207 5.83643 3.4908 6.04777 3.70215L13.5478 11.2021C13.6525 11.3068 13.7356 11.4311 13.7922 11.5679C13.8488 11.7047 13.8779 11.8513 13.8777 11.9994C13.8775 12.1475 13.8481 12.2941 13.7912 12.4307C13.7343 12.5674 13.6509 12.6915 13.5459 12.7959ZM21.0459 11.2021L13.5459 3.70215C13.4412 3.5975 13.317 3.51449 13.1803 3.45785C13.0436 3.40122 12.897 3.37207 12.749 3.37207C12.601 3.37207 12.4545 3.40122 12.3178 3.45785C12.181 3.51449 12.0568 3.5975 11.9521 3.70215C11.8475 3.80679 11.7645 3.93103 11.7079 4.06776C11.6512 4.20448 11.6221 4.35103 11.6221 4.49902C11.6221 4.64702 11.6512 4.79356 11.7079 4.93029C11.7645 5.06702 11.8475 5.19125 11.9521 5.2959L18.6562 12L11.9512 18.704C11.7399 18.9154 11.6211 19.202 11.6211 19.5009C11.6211 19.7998 11.7399 20.0864 11.9512 20.2978C12.1626 20.5091 12.4492 20.6278 12.7481 20.6278C13.047 20.6278 13.3336 20.5091 13.545 20.2978L21.045 12.7978C21.1499 12.6933 21.2332 12.5692 21.2901 12.4325C21.3469 12.2957 21.3762 12.1492 21.3763 12.0011C21.3764 11.853 21.3473 11.7064 21.2906 11.5696C21.2339 11.4328 21.1507 11.3086 21.0459 11.204V11.2021Z" fill="#0A57FF"/></svg></div>
+              <span>Accept in</span><span class="sec">10</span><span>s</span>
+            </div>
+          </div>
+          <div class="info-strip">
+            <span aria-hidden="true"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><g clip-path="url(#signClip)"><path d="M13.75 0H6.24067C5.98881 0 5.7556 0.102612 5.57836 0.270522L0.270522 5.58769C0.0932836 5.76493 0 5.99813 0 6.25V13.7593C0 14.0112 0.102612 14.2444 0.270522 14.4216L5.57836 19.7295C5.7556 19.9067 5.98881 20 6.24067 20H13.75C14.0019 20 14.2351 19.8974 14.4123 19.7295L19.7201 14.4216C19.8974 14.2444 19.9907 14.0112 19.9907 13.7593V6.24067C19.9907 5.98881 19.8881 5.7556 19.7201 5.57836L14.4123 0.270522C14.2351 0.0932836 14.0019 0 13.75 0Z" fill="url(#signGrad)"/><path d="M13.433 0.960938H6.56728C6.37139 0.960938 6.17549 1.03556 6.03556 1.17549L1.17549 6.03556C1.03556 6.17549 0.960938 6.36206 0.960938 6.56728V13.433C0.960938 13.6288 1.03556 13.8247 1.17549 13.9647L6.03556 18.8247C6.17549 18.9647 6.36206 19.0393 6.56728 19.0393H13.433C13.6288 19.0393 13.8247 18.9647 13.9647 18.8247L18.8247 13.9647C18.9647 13.8247 19.0393 13.6382 19.0393 13.433V6.56728C19.0393 6.37139 18.9647 6.17549 18.8247 6.03556L13.9553 1.17549C13.8154 1.03556 13.6288 0.960938 13.4236 0.960938H13.433Z" stroke="white" stroke-width="0.75" stroke-miterlimit="10"/><path d="M8.85283 12.7519L8.49835 4.23507C8.48902 3.97388 8.69425 3.75 8.96477 3.75H11.045C11.3062 3.75 11.5207 3.96455 11.5114 4.23507L11.2129 12.7425C11.2129 12.9944 10.9984 13.1903 10.7465 13.1903H9.31925C9.06738 13.1903 8.86216 12.9944 8.85283 12.7519Z" fill="white"/><path d="M10.0283 16.2407C10.7187 16.2407 11.2783 15.6811 11.2783 14.9907C11.2783 14.3004 10.7187 13.7407 10.0283 13.7407C9.33796 13.7407 8.77832 14.3004 8.77832 14.9907C8.77832 15.6811 9.33796 16.2407 10.0283 16.2407Z" fill="white"/></g><defs><radialGradient id="signGrad" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(10 10) scale(11.959)"><stop stop-color="#F9BD25"/><stop offset="0.33" stop-color="#F7BA23"/><stop offset="0.54" stop-color="#F3B120"/><stop offset="0.72" stop-color="#ECA31A"/><stop offset="0.87" stop-color="#E28E11"/><stop offset="1" stop-color="#D77708"/></radialGradient><clipPath id="signClip"><rect width="20" height="20" fill="white"/></clipPath></defs></svg></span>
+            <p>You are enjoying prime plus benefits</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<aside class="panel">
+  <h2>Extra amount motion</h2>
+  <div class="sub">Built from <b>Fare Booster – Extra amount motion spec v2 (loop + ripple)</b>. Pop-up shows at 0 ms, loop starts at 500 ms and repeats every 1,250 ms.</div>
+
+  <label>Extra amount</label>
+  <div class="seg" id="amountSeg">
+    <button data-amt="40" aria-pressed="false">₹40 · 2 digits</button>
+    <button data-amt="400" aria-pressed="true">₹400 · 3 digits</button>
+    <button data-amt="1200" aria-pressed="false">₹1,200 · 4 digits</button>
+  </div>
+
+  <label>Speed</label>
+  <div class="seg" id="speedSeg">
+    <button data-speed="1" aria-pressed="true">1×</button>
+    <button data-speed="0.25" aria-pressed="false">0.25×</button>
+  </div>
+
+  <label>Computed from the rendered amount</label>
+  <table class="readout">
+    <tr><td>Amount width</td><td id="rAmt">–</td></tr>
+    <tr><td>Ring start (pill)</td><td id="rPill">–</td></tr>
+    <tr><td>Ring end</td><td id="rCircle">–</td></tr>
+    <tr><td>Shimmer travel</td><td id="rTravel">–</td></tr>
+    <tr><td>Time since pop-up</td><td class="clock" id="rClock">–</td></tr>
+  </table>
+
+  <button class="btn primary" id="replay">Replay (show pop-up again)</button>
+  <div class="rm-note" id="rmNote">Reduced motion is on for this device, so the loop is paused. <button class="btn" id="rmOverride" style="margin-top:6px">Play anyway</button></div>
+</aside>
+
+<script>
+(() => {
+  // ---------- spec constants (v2) ----------
+  const EASE = 'cubic-bezier(0.33, 0, 0.67, 1)';
+  const START_DELAY = 500;   // pop-up shown → first loop
+  const LOOP = 1250;         // 500 ms motion + 750 ms pause
+  const PULSE_PEAK = 133, PULSE_END = 250, PULSE_SCALE = 1.2;
+  const SHIMMER_END = 400, SHIMMER_W = 43, SHIMMER_H = 47, SHIMMER_OVERSHOOT = 22;
+  const RING_FADE_PEAK = 250, RING_END = 500, RING_OPACITY = 0.6;
+  const RING_SCALE_FROM = 0.94, RING_SCALE_TO = 1.04;
+  const RING_GAP = 6, RING_PILL_H = 23, RING_CIRCLE_INSET = 2;
+  const RING_CIRCLE_MAX = 58;   // 3-digit (₹400) circle is the limit for every amount
+  const at = ms => ms / LOOP;   // keyframe offset inside one loop
+
+  const $ = id => document.getElementById(id);
+  const fareRow = $('fareRow'), extra = $('extra'), amountEl = $('amount'), amountText = $('amountText');
+  const shimmer = $('shimmer'), anchor = $('rippleAnchor'), scaler = $('rippleScaler'), ring = $('ripple');
+  const fmt = n => '₹' + n.toLocaleString('en-IN');
+
+  let animations = [], shownAt = 0, speed = 1;
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+  let allowMotion = !reduceMotion.matches;
+
+  function measure() {
+    // layout size (ignores transforms), relative to the fare row
+    const w = amountEl.offsetWidth, h = amountEl.offsetHeight;
+    const left = extra.offsetLeft + amountEl.offsetLeft;
+    const top = extra.offsetTop + amountEl.offsetTop;
+    return { w, h, cx: left + w / 2, cy: top + h / 2 };
+  }
+
+  // Cap = the 3-digit reference circle (₹400: amount + 12 − 2). With PP Mori this is exactly 58 px.
+  function refCap() {
+    const probe = document.createElement('span');
+    probe.textContent = fmt(400); probe.style.cssText = 'position:absolute;visibility:hidden;white-space:nowrap';
+    extra.appendChild(probe); const w = probe.offsetWidth; probe.remove();
+    return w ? w + 2 * RING_GAP - RING_CIRCLE_INSET : RING_CIRCLE_MAX;
+  }
+
+  function build() {
+    animations.forEach(a => a.cancel());
+    animations = [];
+    const m = measure();
+    const pillW = m.w + 2 * RING_GAP;
+    // end shape: width hugs the digits (pill − 2) so it never cuts them;
+    // height (and so the 29 px corner radius) never exceeds ₹400's 58 px circle.
+    // ≤ 3 digits → circle; wider amounts → capsule 58 px tall.
+    const endW = pillW - RING_CIRCLE_INSET;
+    const endH = Math.min(endW, refCap());
+    const circle = endH;
+    const startX = -SHIMMER_OVERSHOOT - SHIMMER_W / 2;          // centre at amount left − 22
+    const endX = m.w + SHIMMER_OVERSHOOT - SHIMMER_W / 2;       // centre at amount right + 22
+
+    anchor.style.left = m.cx + 'px';
+    anchor.style.top = m.cy + 'px';
+    ring.style.width = pillW + 'px';
+    ring.style.height = RING_PILL_H + 'px';
+    shimmer.style.backgroundPosition = `${startX}px 50%`;
+
+    $('rAmt').textContent = Math.round(m.w) + ' px';
+    $('rPill').textContent = Math.round(pillW) + ' × ' + RING_PILL_H + ' px';
+    $('rCircle').textContent = Math.round(endW) + ' × ' + Math.round(endH) + ' px' + (endW > endH ? ' (capsule)' : ' (circle)');
+    $('rTravel').textContent = Math.round(endX - startX) + ' px';
+
+    if (!allowMotion) return;
+    const timing = { duration: LOOP, delay: START_DELAY, iterations: Infinity, fill: 'both' };
+
+    // 1. Pulse: +₹400 100% → 120% (0–133) → 100% (133–250), from its centre
+    animations.push(extra.animate([
+      { offset: 0, transform: 'scale(1)', easing: EASE },
+      { offset: at(PULSE_PEAK), transform: `scale(${PULSE_SCALE})`, easing: EASE },
+      { offset: at(PULSE_END), transform: 'scale(1)' },
+      { offset: 1, transform: 'scale(1)' }
+    ], timing));
+
+    // 2. Shimmer: 43 × 47 highlight at 60%, only inside the amount glyphs, 0–400 ms
+    animations.push(shimmer.animate([
+      { offset: 0, backgroundPosition: `${startX}px 50%`, easing: EASE },
+      { offset: at(SHIMMER_END), backgroundPosition: `${endX}px 50%` },
+      { offset: 1, backgroundPosition: `${endX}px 50%` }
+    ], timing));
+
+    // 3. Ripple ring: scale 94% → 104% (0–500)
+    animations.push(scaler.animate([
+      { offset: 0, transform: `scale(${RING_SCALE_FROM})`, easing: EASE },
+      { offset: at(RING_END), transform: `scale(${RING_SCALE_TO})` },
+      { offset: 1, transform: `scale(${RING_SCALE_TO})` }
+    ], timing));
+    //    opacity 0 → 60% (0–250) → 0 (250–500)
+    animations.push(ring.animate([
+      { offset: 0, opacity: 0, easing: EASE },
+      { offset: at(RING_FADE_PEAK), opacity: RING_OPACITY, easing: EASE },
+      { offset: at(RING_END), opacity: 0 },
+      { offset: 1, opacity: 0 }
+    ], timing));
+    //    shape pill (amount + 2 × 6) × 23 → (pill − 2) × min(pill − 2, 58) over 0–500
+    animations.push(ring.animate([
+      { offset: 0, width: pillW + 'px', height: RING_PILL_H + 'px', easing: EASE },
+      { offset: at(RING_END), width: endW + 'px', height: endH + 'px' },
+      { offset: 1, width: endW + 'px', height: endH + 'px' }
+    ], timing));
+
+    animations.forEach(a => { a.playbackRate = speed; });
+  }
+
+  function show() {               // pop-up appears → t = 0
+    shownAt = performance.now();
+    build();
+  }
+
+  function setAmount(n) {
+    amountText.textContent = fmt(n);
+    shimmer.textContent = fmt(n);
+    show();
+  }
+
+  // controls
+  $('amountSeg').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    [...e.currentTarget.children].forEach(x => x.setAttribute('aria-pressed', x === b));
+    setAmount(Number(b.dataset.amt));
+  });
+  $('speedSeg').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    [...e.currentTarget.children].forEach(x => x.setAttribute('aria-pressed', x === b));
+    speed = Number(b.dataset.speed);
+    show();
+  });
+  $('replay').addEventListener('click', show);
+  $('rmOverride').addEventListener('click', () => { allowMotion = true; $('rmNote').style.display = 'none'; show(); });
+  if (!allowMotion) $('rmNote').style.display = 'block';
+
+  // clock readout
+  (function tick() {
+    const t = (performance.now() - shownAt) * speed;
+    const phase = t < START_DELAY ? 'delay' : `loop ${Math.floor((t - START_DELAY) / LOOP) + 1} · ${Math.round((t - START_DELAY) % LOOP)} ms`;
+    $('rClock').textContent = `${Math.round(t)} ms · ${phase}`;
+    requestAnimationFrame(tick);
+  })();
+
+  // fit the 360 × 800 device into short windows
+  function fit() {
+    const s = Math.min(1, (window.innerHeight - 48) / 800);
+    $('device').style.transform = `scale(${s})`;
+    $('deviceWrap').style.width = 360 * s + 'px';
+    $('deviceWrap').style.height = 800 * s + 'px';
+  }
+  window.addEventListener('resize', fit);
+  fit();
+
+  (document.fonts ? document.fonts.ready : Promise.resolve()).then(show);
+})();
+</script>
+</body>
+</html>

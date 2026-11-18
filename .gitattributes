@@ -1,0 +1,4 @@
+*.mp4 binary
+*.gif binary
+*.jar binary
+gradlew text eol=lf
